@@ -26,6 +26,10 @@ jobs:
           package-manager-cache: false
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
+      - name: Give this editor build its own browser asset URL
+        run: |
+          base=$(node -p "require('./package.json').version.split('-')[0]")
+          npm pkg set "version=${base}-adkit.g${GITHUB_SHA::12}"
       - run: pnpm run dev:prepare
       - run: pnpm run prepack
       - run: pnpm test
