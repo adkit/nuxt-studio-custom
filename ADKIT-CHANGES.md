@@ -11,7 +11,17 @@ Base release: Nuxt Studio 1.8.0. Our first release is 1.8.0-adkit.1.
 
 ## Release and update
 
-Build the module and browser editor from the same commit. Attach the built npm tarball to the fork's GitHub release. AdKit installs that exact archive under the dependency name `nuxt-studio`.
+Push a fix to `adkit-v1.8`. GitHub builds the module and browser editor, runs the tests, and publishes `nuxt-studio.tgz` only if they pass. The [latest release](https://github.com/adkit/nuxt-studio-custom/releases/latest) points to that commit. Each previous release keeps its own download URL.
+
+To connect the hosted drafts site, configure the **AdKit CMS** application in Dokploy. Keep its existing Node setup and `npm ci` install step. Use the following build command after the existing Node PATH export:
+
+```sh
+curl -fLsS --retry 3 https://github.com/adkit/nuxt-studio-custom/releases/latest/download/nuxt-studio.tgz -o /tmp/adkit-studio.tgz &&
+  npm install --no-save --workspace @adkit/web /tmp/adkit-studio.tgz &&
+  npm run cms:build
+```
+
+Use a fresh Nixpacks build when redeploying the same AdKit commit. A cached Docker build step can skip the download. For a normal Deploy button that always checks the editor release, set `NIXPACKS_NO_CACHE=1` on the CMS application. This can make article rebuilds slower. To roll back the editor, use the download URL from a previous release and rebuild.
 
 When Nuxt releases a new version, merge the release into an update branch and run the checks above. Remove each local fix once the official version passes its check. If a major update makes the merge impractical, start from that version and use this file to decide which fixes to reapply.
 
