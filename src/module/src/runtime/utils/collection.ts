@@ -134,13 +134,20 @@ function computeValuesBasedOnCollectionSchema(collection: CollectionInfo, data: 
   return values
 }
 
-export function generateRecordInsert(collection: CollectionInfo, data: Record<string, unknown>) {
+export function generateRecordUpsert(collection: CollectionInfo, data: Record<string, unknown>) {
   const values = computeValuesBasedOnCollectionSchema(collection, data)
 
   let index = 0
 
-  return `INSERT INTO ${collection.tableName} VALUES (${'?, '.repeat(values.length).slice(0, -2)})`
+  const columns = getOrderedSchemaKeys(collection.schema).filter(key => key !== 'id')
+  columns.push('__hash__')
+  const assignments = columns.map((key) => {
+    const quoted = '"' + key.replace(/"/g, '""') + '"'
+    return `${quoted} = excluded.${quoted}`
+  })
+  const insert = `INSERT INTO ${collection.tableName} VALUES (${'?, '.repeat(values.length).slice(0, -2)})`
     .replace(/\?/g, () => values[index++] as string)
+  return `${insert} ON CONFLICT(id) DO UPDATE SET ${assignments.join(', ')}`
 }
 
 export function generateRecordDeletion(collection: CollectionInfo, id: string) {

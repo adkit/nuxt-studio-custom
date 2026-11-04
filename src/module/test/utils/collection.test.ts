@@ -1,5 +1,6 @@
+import { DatabaseSync } from 'node:sqlite'
 import { describe, it, expect } from 'vitest'
-import { getCollectionByFilePath, generateIdFromFsPath, generateFsPathFromId, generateRecordInsert } from '../../src/runtime/utils/collection'
+import { getCollectionByFilePath, generateIdFromFsPath, generateFsPathFromId, generateRecordUpsert } from '../../src/runtime/utils/collection'
 import type { CollectionInfo, ResolvedCollectionSource } from '@nuxt/content'
 import { collections } from '../mocks/collection'
 
@@ -210,7 +211,7 @@ describe('generateIdFromFsPath', () => {
   })
 })
 
-describe('generateRecordInsert', () => {
+describe('generateRecordUpsert', () => {
   const collection = {
     name: 'data',
     tableName: '_content_data',
@@ -229,15 +230,31 @@ describe('generateRecordInsert', () => {
     },
   } as unknown as CollectionInfo
 
+  it('keeps the last preview and unrelated pages when an update is rejected', () => {
+    const db = new DatabaseSync(':memory:')
+    try {
+      db.exec('CREATE TABLE _content_data (id TEXT PRIMARY KEY, title TEXT UNIQUE, meta TEXT, text TEXT, __hash__ TEXT)')
+      const write = (id: string, title: string) => db.exec(generateRecordUpsert(collection, { id, title, text: 'Body', meta: {} }))
+      write('a', 'First')
+      write('b', 'Other')
+      write('a', 'Updated')
+      expect(() => write('a', 'Other')).toThrow()
+      expect(db.prepare('SELECT title FROM _content_data ORDER BY id').all()).toEqual([{ title: 'Updated' }, { title: 'Other' }])
+    }
+    finally {
+      db.close()
+    }
+  })
+
   it('keeps line breaks of string values as real newlines', () => {
-    const sql = generateRecordInsert(collection, { id: 'data/a.yml', title: 'A', text: 'Line 1\nLine 2', meta: {} })
+    const sql = generateRecordUpsert(collection, { id: 'data/a.yml', title: 'A', text: 'Line 1\nLine 2', meta: {} })
 
     expect(sql).toContain('\'Line 1\nLine 2\'')
     expect(sql).not.toContain('Line 1\\nLine 2')
   })
 
   it('escapes single quotes in string values', () => {
-    const sql = generateRecordInsert(collection, { id: 'data/a.yml', title: 'It\'s', text: 'x', meta: {} })
+    const sql = generateRecordUpsert(collection, { id: 'data/a.yml', title: 'It\'s', text: 'x', meta: {} })
 
     expect(sql).toContain('\'It\'\'s\'')
   })

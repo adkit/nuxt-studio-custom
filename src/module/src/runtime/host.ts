@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { ensure } from './utils/ensure'
 import type { CollectionInfo, CollectionItemBase, CollectionSource, DatabaseAdapter } from '@nuxt/content'
 import type { ContentDatabaseAdapter } from '../types/content'
-import { getCollectionByFilePath, generateIdFromFsPath, generateRecordDeletion, generateRecordInsert, generateFsPathFromId, getCollectionById } from './utils/collection'
+import { getCollectionByFilePath, generateIdFromFsPath, generateRecordDeletion, generateRecordUpsert, generateFsPathFromId, getCollectionById } from './utils/collection'
 import { applyCollectionSchema, isDocumentMatchingContent, documentFromContent, contentFromDocument, areDocumentsEqual, pickReservedKeysFromDocument, cleanDataKeys, sanitizeDocumentTree, markdownRootFromComarkTree, isComarkTree, ensureComarkBody } from './utils/document'
 import { getHostStyles, getSidebarWidth, adjustFixedElements } from './utils/sidebar'
 import type { StudioHost, StudioUser, DatabaseItem, MediaItem, Repository } from 'nuxt-studio/app'
@@ -261,8 +261,8 @@ export function useStudioHost(user: StudioUser, repository: Repository): StudioH
 
           const normalizedDocument = applyCollectionSchema(id, collectionInfo, documentToStore)
 
-          await useContentDatabaseAdapter(collectionInfo.name).exec(generateRecordDeletion(collectionInfo, id))
-          await useContentDatabaseAdapter(collectionInfo.name).exec(generateRecordInsert(collectionInfo, normalizedDocument))
+          const sql = generateRecordUpsert(collectionInfo, normalizedDocument)
+          await useContentDatabaseAdapter(collectionInfo.name).exec(sql)
         },
         delete: async (fsPath: string) => {
           const collection = getCollectionByFilePath(fsPath, useContentCollections())
