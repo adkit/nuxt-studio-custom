@@ -8,6 +8,9 @@ Base release: Nuxt Studio 1.8.0. Our first release is 1.8.0-adkit.1.
 | Open the saved Markdown when a clean article differs from the preview. Keep existing browser edits. | The drafts site can still show an older build after Publish. | Reopen the article before the rebuild finishes. The editor and preview must show the saved text. |
 | Preserve bound component props when updating the preview. | An icon grid with a list of items could stop the preview from rendering. | Reopen an article with a grid and edit its text. Check the grid and the text. |
 | Keep the latest editor input while converting a long article to Markdown. | Fast typing could leave the last characters out of the saved draft. | Type a sentence quickly. Check the preview, refresh the page, and verify the entire sentence. |
+| Keep the current preview if an edit fails to write. | A separate delete and insert could clear the preview on failure ([upstream #606](https://github.com/nuxt-content/nuxt-studio/issues/606)). | Reject a replacement in SQLite and verify the previous article survives. |
+| Omit the optional formatting prompt. | Formatting an untouched article can discard information. Writers only need to edit and review their changes. | Open an article with noncanonical Markdown and edit it without a conversion prompt. |
+| Recover named icons from the broken block syntax Studio 1.8 wrote in table cells. | Old articles still showed literal markers after the writer for new icons was fixed. | Open the saved article, then save and reopen a copy with its logos and labels intact. |
 
 ## Release and update
 
