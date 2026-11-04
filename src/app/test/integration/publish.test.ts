@@ -1,4 +1,5 @@
-import { type vi, describe, it, expect, beforeEach } from 'vitest'
+import { createMockGithubFile } from '../mocks/git'
+import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { StudioBranchActionId, type StudioHost } from '../../src/types'
 import { generateUniqueDocumentFsPath } from '../utils'
 import { mockHost, mockGit, routeState, cleanAndSetupContext } from '../utils/context'
@@ -68,4 +69,19 @@ describe('PublishBranch - Commit Message Prefix', () => {
     const [, commitMessage] = (mockGit.api.commitFiles as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(commitMessage).toBe('docs: Update readme')
   })
+})
+
+it('opens the newer branch copy when the preview still has the old article', async () => {
+  routeState.name = 'content'
+  const context = await cleanAndSetupContext(mockHost, mockGit)
+  const path = generateUniqueDocumentFsPath('document')
+  await mockHost.document.db.create(path, 'Previous text')
+  vi.mocked(mockGit.api.fetchFile).mockResolvedValueOnce({
+    ...createMockGithubFile(), content: 'Text saved on the branch',
+  })
+  await context.activeTree.value.draft.selectByFsPath(path)
+  const draft = context.activeTree.value.draft.current.value!
+  expect(draft.conflict).toBeUndefined()
+  expect(draft.status).toBe('pristine')
+  expect(JSON.stringify(draft.modified)).toContain('Text saved on the branch')
 })

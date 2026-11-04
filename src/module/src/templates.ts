@@ -1,5 +1,5 @@
 import type { Storage } from 'unstorage'
-import { mediaItemFieldsFromKey } from './runtime/utils/media'
+import { createResolver } from '@nuxt/kit'
 
 export async function getAssetsDefaultStorageDevTemplate() {
   return [
@@ -13,15 +13,17 @@ export async function getAssetsDefaultStorageDevTemplate() {
 
 export async function getAssetsDefaultStorageTemplate(assetsStorage: Storage) {
   const keys = await assetsStorage.getKeys()
+  const mediaUtils = createResolver(import.meta.url).resolve('./runtime/utils/media')
 
   return [
     'import { createStorage } from \'unstorage\'',
     'const storage = createStorage({})',
     '',
-    ...keys.map((key) => {
-      const value = mediaItemFieldsFromKey(key)
-      return `storage.setItem('${value.id}', ${JSON.stringify(value)})`
-    }),
+    `import { mediaItemFieldsFromKey } from ${JSON.stringify(mediaUtils)}`,
+    `for (const key of ${JSON.stringify(keys)}) {`,
+    '  const media = mediaItemFieldsFromKey(key)',
+    '  storage.setItem(media.id, media)',
+    '}',
     '',
     'export const publicAssetsStorage = storage',
     'export const externalAssetsStorage = null',

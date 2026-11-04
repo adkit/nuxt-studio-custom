@@ -2,6 +2,7 @@ import type { Node as MarkdownNode, MarkdownDocument } from 'comark'
 import type { DatabaseItem } from 'nuxt-studio/app'
 import { ContentFileExtension } from '../../types/content'
 import { doObjectsMatch } from '../object'
+import { renderTableWithInlineIcons } from './table-icons'
 import { renderMarkdown } from 'comark/render'
 import { documentFromContent } from './generate'
 import { cleanDataKeys } from './schema'
@@ -42,8 +43,9 @@ export async function isDocumentMatchingContent(content: string, document: Datab
     // Compare body nodes only (not frontmatter — that's compared separately via doObjectsMatch below).
     const generatedNormalized = normalizeAttrsDeep(normalizeLegacyBodyDifferences({ ...(generatedDocument.body as MarkdownDocument), frontmatter: {} }))
     const documentNormalized = normalizeAttrsDeep(normalizeLegacyBodyDifferences({ ...comarkBody(document), frontmatter: {} }))
-    const generatedBodyStringified = (await renderMarkdown(generatedNormalized)).replace(/\n/g, '')
-    const documentBodyStringified = (await renderMarkdown(documentNormalized)).replace(/\n/g, '')
+    const options = { components: { table: renderTableWithInlineIcons } }
+    const generatedBodyStringified = (await renderMarkdown(generatedNormalized, options)).replace(/\n/g, '')
+    const documentBodyStringified = (await renderMarkdown(documentNormalized, options)).replace(/\n/g, '')
     if (generatedBodyStringified !== documentBodyStringified) {
       return false
     }

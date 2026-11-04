@@ -61,7 +61,7 @@ export function useDraftBase<T extends DatabaseItem | MediaItem>(
       throw new Error(`Draft file already exists for document at ${fsPath}`)
     }
 
-    const remoteFile = await gitProvider.api.fetchFile(joinURL(remotePathPrefix, fsPath), { cached: true }) as GitFile
+    const remoteFile = await gitProvider.api.fetchFile(joinURL(remotePathPrefix, fsPath), { cached: !fsPath.endsWith('.md') }) as GitFile
 
     const draftItem: DraftItem<T> = {
       fsPath,
@@ -75,7 +75,18 @@ export function useDraftBase<T extends DatabaseItem | MediaItem>(
     }
 
     const conflict = await checkConflict(host, draftItem)
-    if (conflict) {
+    if (conflict && draftItem.status === DraftStatus.Pristine && original?.extension === 'md') {
+      // The branch can already have the new article while the preview still serves the last build.
+      const saved = await host.document.generate.documentFromContent(original.id, conflict.remoteContent)
+      if (!saved) throw new Error('Could not read the saved Markdown.')
+      await host.document.db.upsert(fsPath, saved)
+      const article = await host.document.db.get(fsPath)
+      if (!article) throw new Error('Could not open the saved article.')
+      draftItem.original = article as T
+      draftItem.modified = article as T
+      await host.app.requestRerender()
+    }
+    else if (conflict) {
       draftItem.conflict = conflict
     }
 

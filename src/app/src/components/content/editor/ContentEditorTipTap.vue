@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { queueLatestArticleEdit } from '../../../utils/queueLatestArticleEdit'
 import type { PropType } from 'vue'
 import type { JSONContent } from '@tiptap/vue-3'
 import type { MarkdownDocument } from 'comark'
@@ -83,17 +84,8 @@ const currentTiptap = ref<JSONContent>()
 const currentComark = ref<MarkdownDocument>()
 const currentContent = ref<string>()
 
-let isConverting = false
-
-// TipTap to Markdown
-watch(tiptapJSON, async (json) => {
-  // Skip if already converting (prevents UEditor v-model from triggering multiple times)
-  if (isConverting) {
-    return
-  }
-
-  isConverting = true
-
+// A conversion can span several keystrokes. Only apply the most recent editor snapshot.
+watch(tiptapJSON, queueLatestArticleEdit<JSONContent | undefined>(() => document.value?.id, async (json, isLatest) => {
   const cleanedTiptap = removeLastEmptyParagraph(json!)
 
   // TipTap → MarkdownDocument (internal representation)
@@ -107,6 +99,7 @@ watch(tiptapJSON, async (json) => {
     body: comarkTree,
   }
 
+  if (!isLatest()) return
   document.value = updatedDocument
 
   // Debug: Capture current state
@@ -116,8 +109,7 @@ watch(tiptapJSON, async (json) => {
     currentContent.value = await host.document.generate.contentFromDocument(updatedDocument) as string
   }
 
-  isConverting = false
-})
+}))
 
 // Trigger on document changes
 watch(() => `${document.value?.id}-${props.draftItem.version}-${props.draftItem.status}`, async () => {

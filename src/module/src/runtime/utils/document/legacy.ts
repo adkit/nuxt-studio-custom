@@ -22,6 +22,7 @@ import type { DatabaseItem } from 'nuxt-studio/app'
 import type { MarkdownDocument, Node as MarkdownNode, ElementNode, ElementNodeAttributes, CommentNode } from 'comark'
 import { compressTree, decompressTree } from '@nuxt/content/runtime'
 import { generateFlatToc } from 'comark/plugins/toc'
+import { isTableIcon } from './table-icons'
 import { cleanDataKeys } from './schema'
 import { isComarkTree } from './generate'
 
@@ -77,6 +78,13 @@ function mdcNodeToComarkNode(node: MDCNode): MarkdownNode {
     const el = node as MDCElement
     if (el.tag === 'pre') return preMdcToComarkNode(el)
     const children = dropNewlineAfterHardBreaks(normalizeMdcChildren(el.children || []))
+    if (el.tag === 'td' || el.tag === 'th') {
+      const hasIcon = children.some(child => child.type === 'element' && isTableIcon(child.tag))
+      const inline = children.every(child => child.type === 'text' || (child.type === 'element' && (isTableIcon(child.tag) || HTML_INLINE_TAGS.has(child.tag!))))
+      if (hasIcon && inline) {
+        return [el.tag, propsMDCToComark(el.tag, el.props || {}), ['p', {}, ...children.map(mdcNodeToComarkNode)]]
+      }
+    }
     return [
       el.tag!,
       propsMDCToComark(el.tag!, (el.props as Record<string, unknown>) || {}),
@@ -582,7 +590,11 @@ export function padBlankLinesInComponents(markdown: string): string {
  * legacy MarkdownRoot format consumed by @nuxt/content.
  */
 function propsComarkToMDC(tag: string, attrs: Record<string, unknown>): Record<string, unknown> {
-  let next: Record<string, unknown> = attrs
+  let next: Record<string, unknown> = { ...attrs }
+  // MDC expects an expression string for a bound component prop.
+  for (const [key, value] of Object.entries(next)) {
+    if (key.startsWith(':') && typeof value !== 'string') next[key] = JSON.stringify(value)
+  }
 
   if (tag === 'template' && typeof next.name === 'string') {
     const { name, ...rest } = next

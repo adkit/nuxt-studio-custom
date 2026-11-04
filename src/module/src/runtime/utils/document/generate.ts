@@ -6,6 +6,7 @@ import comarkEmoji from 'comark/plugins/emoji'
 import tocPlugin from 'comark/plugins/toc'
 import type { MarkdownDocument } from 'comark'
 import shiki from 'comark/plugins/shiki'
+import { renderTableWithInlineIcons } from './table-icons'
 import { renderMarkdown } from 'comark/render'
 import destr from 'destr'
 import { CORE_SCHEMA, dump, loadAll, mergeTag, timestampTag } from 'js-yaml'
@@ -162,6 +163,7 @@ export async function contentFromMarkdownDocument(document: DatabaseItem): Promi
   if (!tree) return '\n'
   const body = unbindComarkTree(tree)
   const markdown = await renderMarkdown(body, {
+    components: { table: renderTableWithInlineIcons },
     blockAttributesStyle: 'frontmatter',
   })
   return padBlankLinesInComponents(markdown) + '\n'
