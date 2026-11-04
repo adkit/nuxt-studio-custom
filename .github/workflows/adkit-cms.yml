@@ -1,0 +1,40 @@
+name: Build AdKit CMS editor
+
+on:
+  push:
+    branches: [adkit-v1.8]
+  workflow_dispatch:
+
+concurrency:
+  group: adkit-cms-release
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.repository == 'adkit/nuxt-studio-custom' && github.ref == 'refs/heads/adkit-v1.8'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run dev:prepare
+      - run: pnpm run prepack
+      - run: pnpm test
+      - name: Publish tested editor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="cms-$GITHUB_SHA"
+          mv "$(npm pack --ignore-scripts --silent)" nuxt-studio.tgz
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            gh release create "$tag" nuxt-studio.tgz --target "$GITHUB_SHA" --latest \
+              --title "CMS editor ${GITHUB_SHA::7}" --notes "Built and tested from $GITHUB_SHA."
+          fi
