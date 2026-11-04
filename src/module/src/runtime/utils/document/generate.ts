@@ -6,7 +6,7 @@ import comarkEmoji from 'comark/plugins/emoji'
 import tocPlugin from 'comark/plugins/toc'
 import type { MarkdownDocument } from 'comark'
 import shiki from 'comark/plugins/shiki'
-import { renderTableWithInlineIcons } from './table-icons'
+import { readLegacyTableIcons, renderTableWithInlineIcons } from './table-icons'
 import { renderMarkdown } from 'comark/render'
 import destr from 'destr'
 import { CORE_SCHEMA, dump, loadAll, mergeTag, timestampTag } from 'js-yaml'
@@ -108,6 +108,7 @@ export async function documentFromMarkdownContent(id: string, content: string, o
     autoUnwrap: true,
     linkify: false,
     plugins: [
+      readLegacyTableIcons,
       comarkEmoji(),
       shiki({ themes }),
       tocPlugin({ depth: 2, searchDepth: 2, title: '', links: [] }),

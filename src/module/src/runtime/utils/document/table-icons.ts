@@ -1,8 +1,25 @@
 import type { NodeHandler } from 'comark/render'
-import type { ElementNodeAttributes } from 'comark'
+import type { ComarkPlugin, ElementNodeAttributes } from 'comark'
 
 export function isTableIcon(tag: unknown) {
   return tag === 'icon' || tag === 'code-icon'
+}
+
+// Studio 1.8 flattened block icons into one table cell. Recover their props before
+// the inline Markdown parser consumes the braces and leaves only the literal marker.
+export const readLegacyTableIcons: ComarkPlugin = {
+  name: 'read-legacy-table-icons',
+  markdownItPlugins: [md => md.core.ruler.before('inline', 'legacy_table_icons', (state) => {
+    for (const [index, token] of state.tokens.entries()) {
+      const previous = state.tokens[index - 1]?.type
+      if (token.type !== 'inline' || (previous !== 'td_open' && previous !== 'th_open')) continue
+      // Some cells start with an unconfigured icon left over from the insert menu.
+      const placeholder = /^::icon\s+---\s+mode: svg\s+size: '\d+'\s+customize:\s+name: ''\s+---\s+::\s+(?=::(?:code-)?icon\{)/
+      const content = token.content.replace(placeholder, '')
+      const block = /^::(code-icon|icon)(\{[^{}|\n]+\})\s+::(?=\s|$)/
+      if (block.test(content)) token.content = content.replace(block, ':$1$2')
+    }
+  })],
 }
 
 export const renderTableWithInlineIcons: NodeHandler = async (table, state, parent) => {
