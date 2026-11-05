@@ -30,22 +30,25 @@ export const useDraftDocuments = createSharedComposable((host: StudioHost, gitPr
   const hostDb = host.document.db
   const generateContentFromDocument = host.document.generate.contentFromDocument
 
-  async function update(fsPath: string, document: DatabaseItem): Promise<DraftItem<DatabaseItem>> {
+  async function update(fsPath: string, document: DatabaseItem, review?: { text: string, original: string }): Promise<DraftItem<DatabaseItem>> {
     const existingItem = list.value.find(item => item.fsPath === fsPath) as DraftItem<DatabaseItem>
     if (!existingItem) {
       throw new Error(`Draft file not found for document fsPath: ${fsPath}`)
     }
 
     const oldStatus = existingItem.status
-    existingItem.status = await getStatus(document, existingItem.original as DatabaseItem, { formattingApplied: existingItem.formattingApplied })
-    existingItem.modified = document
-
-    await storage.setItem(fsPath, existingItem)
+    let status = await getStatus(document, existingItem.original as DatabaseItem, { formattingApplied: existingItem.formattingApplied })
+    if (review && status !== DraftStatus.Created) {
+      status = review.text === review.original ? DraftStatus.Pristine : DraftStatus.Updated
+    }
+    const changes = { status, modified: document, reviewMarkdown: review?.text }
+    await storage.setItem(fsPath, { ...existingItem, ...changes })
+    Object.assign(existingItem, changes)
 
     list.value = list.value.map(item => item.fsPath === fsPath ? existingItem : item)
 
     // Upsert document in database
-    await hostDb.upsert(fsPath, existingItem.modified)
+    await hostDb.upsert(fsPath, document)
 
     // Trigger hook to warn that draft list has changed
     if (existingItem.status !== oldStatus) {
@@ -126,6 +129,7 @@ export const useDraftDocuments = createSharedComposable((host: StudioHost, gitPr
     const existingItem = list.value.find(item => item.fsPath === fsPath) as DraftItem<DatabaseItem> | undefined
     if (!existingItem) return undefined
 
+    delete existingItem.reviewMarkdown
     existingItem.formattingApplied = true
     existingItem.status = await getStatus(
       existingItem.modified as DatabaseItem,
@@ -147,7 +151,7 @@ export const useDraftDocuments = createSharedComposable((host: StudioHost, gitPr
         continue
       }
 
-      const content = await generateContentFromDocument(draftItem.modified as DatabaseItem)
+      const content = draftItem.reviewMarkdown ?? await generateContentFromDocument(draftItem.modified as DatabaseItem)
       files.push({
         path: joinURL('content', draftItem.fsPath),
         content: content!,

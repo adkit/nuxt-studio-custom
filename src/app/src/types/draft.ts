@@ -18,6 +18,8 @@ export interface DraftItem<T = DatabaseItem | MediaItem> {
   fsPath: string // file path in content directory
   status: DraftStatus // status
 
+  /** Exact Markdown from Review until the next editor change. */
+  reviewMarkdown?: string
   remoteFile?: GitFile
   original?: T
   modified?: T

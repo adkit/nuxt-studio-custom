@@ -5,7 +5,7 @@ import { createMockDocument } from './document'
 import { createMockMedia } from './media'
 import { joinURL } from 'ufo'
 import type { MediaItem } from '../../src/types/media'
-import { isDocumentMatchingContent, areDocumentsEqual, documentFromContent, contentFromDocument, pickReservedKeysFromDocument, cleanDataKeys } from '../../../module/dist/runtime/utils/document'
+import { ensureComarkBody, isDocumentMatchingContent, areDocumentsEqual, documentFromContent, contentFromDocument, pickReservedKeysFromDocument, cleanDataKeys } from '../../../module/dist/runtime/utils/document'
 
 // Helper to convert fsPath to id (simulates module's internal mapping)
 export const fsPathToId = (fsPath: string, type: 'document' | 'media') => {
@@ -55,6 +55,7 @@ export const createMockHost = (): StudioHost => ({
       }),
     },
     utils: {
+      ensureComarkBody,
       areEqual: vi.fn().mockImplementation(async (document1: DatabaseItem, document2: DatabaseItem) => {
         return areDocumentsEqual(document1, document2)
       }),

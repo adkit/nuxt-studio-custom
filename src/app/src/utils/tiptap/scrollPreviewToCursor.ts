@@ -1,7 +1,14 @@
 import type { Editor } from '@tiptap/core'
 
+let frame = 0
+
+export function stopFollowingCursor() {
+  cancelAnimationFrame(frame)
+}
+
 // ContentRenderer identifies the article. Studio and the preview share a document.
 export function scrollPreviewToCursor(editor: Editor, documentId: string) {
+  stopFollowingCursor()
   const preview = document.querySelector(`[data-content-id="${CSS.escape(documentId)}"]`)
   if (!preview) return
 
@@ -67,7 +74,26 @@ export function scrollPreviewToCursor(editor: Editor, documentId: string) {
   const bottom = Math.min(window.innerHeight, viewport?.bottom ?? window.innerHeight)
   const desiredTop = Math.max(top, Math.min(sourceTop, bottom - Math.min(rect.height, 24)))
   const delta = rect.top - desiredTop
-  if (Math.abs(delta) > 1) scroller.scrollBy({ top: delta, behavior: 'instant' })
+  if (Math.abs(delta) <= 1) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    scroller.scrollBy({ top: delta, behavior: 'instant' })
+    return
+  }
+
+  // Images can load during a long scroll and move the passage. Measure its
+  // destination on each frame so the animation ends at the selected line.
+  const start = performance.now()
+  const from = scroller.scrollTop
+  const duration = Math.min(450, 140 + Math.abs(delta) / 8)
+  function advance(now: number) {
+    if (!target?.isConnected) return
+    const progress = Math.min(1, (now - start) / duration)
+    const destination = scroller.scrollTop + target.getBoundingClientRect().top - desiredTop
+    const top = from + (destination - from) * (1 - (1 - progress) ** 3)
+    scroller.scrollTo({ top, behavior: 'instant' })
+    if (progress < 1) frame = requestAnimationFrame(advance)
+  }
+  frame = requestAnimationFrame(advance)
 }
 
 function findScrollContainer(target: Element): Element {

@@ -85,3 +85,27 @@ it('opens the newer branch copy when the preview still has the old article', asy
   expect(draft.status).toBe('pristine')
   expect(JSON.stringify(draft.modified)).toContain('Text saved on the branch')
 })
+
+it('keeps exact Review Markdown across reload and uses later editor changes for Publish', async () => {
+  routeState.name = 'content'
+  const context = await cleanAndSetupContext(mockHost, mockGit)
+  const path = generateUniqueDocumentFsPath('review')
+  const original = 'Test content'
+  const item = await mockHost.document.db.create(path, original)
+  const drafts = context.activeTree.value.draft
+  await drafts.selectByFsPath(path)
+
+  const text = original + '\n\n\n'
+  await drafts.update(path, item, { text, original })
+  await drafts.load()
+  expect((await drafts.get(path))?.status).toBe('updated')
+  expect((await drafts.listAsRawFiles())[0]?.content).toBe(text)
+
+  await drafts.update(path, item, { text: original, original })
+  expect((await drafts.get(path))?.status).toBe('pristine')
+
+  const next = await mockHost.document.db.create(path, 'Changed in the visual editor')
+  await drafts.update(path, next)
+  expect((await drafts.get(path))?.reviewMarkdown).toBeUndefined()
+  expect((await drafts.listAsRawFiles())[0]?.content).toContain('Changed in the visual editor')
+})

@@ -1,4 +1,4 @@
-import { watch, unref, type Ref, shallowRef } from 'vue'
+import { watch, type Ref, shallowRef } from 'vue'
 import type { editor as Editor } from 'modern-monaco/editor-core'
 import { setupMonaco } from '../utils/monaco/index'
 
@@ -10,23 +10,21 @@ export interface UseMonacoDiffOptions {
   editorOptions?: Editor.IStandaloneDiffEditorConstructionOptions
 }
 
-export function useMonacoDiff(target: Ref, options: UseMonacoDiffOptions) {
+export function useMonacoDiff(target: Ref<HTMLElement | undefined>, options: UseMonacoDiffOptions) {
   const editor = shallowRef<Editor.IStandaloneDiffEditor | null>(null)
-  let isInitialized = false
+  const theme = () => options.colorMode.value === 'light' ? 'vitesse-light' : 'vitesse-dark'
 
-  const getTheme = (mode: 'light' | 'dark' = 'dark') => {
-    return mode === 'light' ? 'vitesse-light' : 'vitesse-dark'
-  }
-
-  const init = async () => {
-    const el = unref(target)
-    if (!el || isInitialized) return
-
+  watch(target, async (el, _, onCleanup) => {
+    if (!el) return
+    let disposed = false
+    onCleanup(() => {
+      disposed = true
+    })
     const monaco = await setupMonaco()
-    const colorMode = unref(options.colorMode) || 'dark'
+    if (disposed) return
 
-    editor.value = monaco.createDiffEditor(el, {
-      theme: getTheme(colorMode),
+    const diff = monaco.createDiffEditor(el, {
+      theme: theme(),
       lineNumbers: 'off',
       readOnly: true,
       renderSideBySide: true,
@@ -36,45 +34,27 @@ export function useMonacoDiff(target: Ref, options: UseMonacoDiffOptions) {
       automaticLayout: true,
       ...options.editorOptions,
     })
-
-    watch(options.colorMode, (newMode) => {
-      editor.value?.updateOptions({
-        // @ts-expect-error -- theme is missing from IDiffEditorOptions
-        theme: getTheme(newMode),
-      })
+    const original = monaco.editor.createModel(options.original, options.language)
+    const modified = monaco.editor.createModel(options.modified, options.language)
+    diff.setModel({ original, modified })
+    editor.value = diff
+    onCleanup(() => {
+      diff.setModel(null)
+      diff.dispose()
+      original.dispose()
+      modified.dispose()
+      editor.value = null
     })
+  }, { immediate: true, flush: 'post' })
 
-    editor.value.setModel({
-      original: monaco.editor.createModel(options.original, options.language),
-      modified: monaco.editor.createModel(options.modified, options.language),
-    })
+  watch(options.colorMode, () => {
+    // @ts-expect-error -- theme is missing from IDiffEditorOptions
+    editor.value?.updateOptions({ theme: theme() })
+  })
 
-    isInitialized = true
-  }
-
-  // Watch target to initialize when it becomes available
-  watch(
-    target,
-    () => {
-      const el = unref(target)
-      if (el && !isInitialized) {
-        init()
-      }
-      else if (!el && isInitialized) {
-        isInitialized = false
-        editor.value?.dispose()
-        editor.value = null
-      }
-    },
-    { immediate: true, flush: 'post' },
-  )
-
-  const setOptions = (opts: Editor.IStandaloneDiffEditorConstructionOptions) => {
+  function setOptions(opts: Editor.IStandaloneDiffEditorConstructionOptions) {
     editor.value?.updateOptions(opts)
   }
 
-  return {
-    editor,
-    setOptions,
-  }
+  return { editor, setOptions }
 }
