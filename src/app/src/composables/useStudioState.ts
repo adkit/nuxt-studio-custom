@@ -1,4 +1,4 @@
-import { readonly, ref } from 'vue'
+import { readonly, ref, shallowReactive } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { createSharedComposable } from './createSharedComposable'
 import type { StudioConfig, StudioLocation } from '../types'
@@ -7,6 +7,8 @@ import { StudioFeature } from '../types/context'
 export const useStudioState = createSharedComposable(() => {
   const devMode = ref(false)
   const isPublishing = ref(false)
+  // Keep inline edits when a Review card closes. A replaced draft starts a fresh buffer.
+  const reviewInputs = shallowReactive(new WeakMap<object, string>())
   const manifestId = ref<string>('')
   const preferences = useStorage<StudioConfig>('studio-preferences', { syncEditorAndRoute: true, followEditorCursor: false, showTechnicalMode: false, editorMode: 'tiptap', debug: false, enableAICompletion: true })
   const location = useStorage<StudioLocation>('studio-active', { active: false, feature: StudioFeature.Content, fsPath: '/' })
@@ -34,6 +36,7 @@ export const useStudioState = createSharedComposable(() => {
   return {
     devMode: readonly(devMode),
     isPublishing,
+    reviewInputs,
     manifestId: readonly(manifestId),
     preferences: readonly(preferences),
     location: readonly(location),

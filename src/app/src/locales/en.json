@@ -48,9 +48,8 @@
     },
     "review": {
       "title": "Review changes",
-      "editDraft": "Edit draft",
       "saveDraft": "Save draft",
-      "editDescription": "Edit the Markdown on the right. The saved version is on the left.",
+      "saveBeforePublish": "Save or cancel your Review edits before publishing.",
       "invalidMarkdown": "Studio could not read this Markdown.",
       "created": "Created",
       "updated": "Updated",

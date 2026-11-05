@@ -2,11 +2,13 @@
 import type { DatabaseItem, DraftItem } from '../../types'
 import { ref, watch } from 'vue'
 import { useStudio } from '../../composables/useStudio'
+import { useStudioState } from '../../composables/useStudioState'
 import { fromBase64ToUTF8 } from '../../utils/string'
 
 const { host } = useStudio()
 const props = defineProps<{ draftItem: DraftItem }>()
-const isOpen = ref(false)
+const { reviewInputs } = useStudioState()
+const isOpen = ref(!!props.draftItem.modified && reviewInputs.has(props.draftItem.modified))
 const comparison = ref<{ original: string, modified: string }>()
 const error = ref('')
 
@@ -28,7 +30,7 @@ watch(isOpen, async (open, _, onCleanup) => {
   catch (cause) {
     if (current) error.value = String(cause)
   }
-})
+}, { immediate: true })
 </script>
 
 <template>

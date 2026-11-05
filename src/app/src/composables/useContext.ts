@@ -1,3 +1,4 @@
+import { useStudioState } from './useStudioState'
 import { createSharedComposable } from './createSharedComposable'
 import { computed, ref } from 'vue'
 import {
@@ -58,6 +59,8 @@ export const useContext = createSharedComposable((
    * Drafts
    */
   const allDrafts = computed(() => [...documentTree.draft.list.value, ...mediaTree.draft.list.value].filter(draft => draft.status !== DraftStatus.Pristine))
+  const { reviewInputs } = useStudioState()
+  const hasUnsavedReviewEdits = computed(() => allDrafts.value.some(draft => draft.modified && reviewInputs.has(draft.modified)))
   const isDraftInProgress = computed(() => allDrafts.value.some(draft => draft.status !== DraftStatus.Pristine))
   const draftCount = computed(() => allDrafts.value.length)
 
@@ -262,6 +265,7 @@ export const useContext = createSharedComposable((
     branchActionHandler,
     actionInProgress,
     allDrafts,
+    hasUnsavedReviewEdits,
     draftCount,
     isDraftInProgress,
     unsetActionInProgress,

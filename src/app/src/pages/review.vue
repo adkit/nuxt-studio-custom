@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watchEffect } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { useStudio } from '../composables/useStudio'
 import { DraftStatus } from '../types'
 import { isMediaFile } from '../utils/file'
 import { COLOR_UI_STATUS_MAP } from '../utils/tree'
 
 const { context } = useStudio()
+
+onBeforeRouteLeave(() => !context.hasUnsavedReviewEdits.value)
+watchEffect((onCleanup) => {
+  if (!context.hasUnsavedReviewEdits.value) return
+  const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+  window.addEventListener('beforeunload', warn)
+  onCleanup(() => window.removeEventListener('beforeunload', warn))
+})
 
 const groupedDrafts = computed(() => {
   return {
