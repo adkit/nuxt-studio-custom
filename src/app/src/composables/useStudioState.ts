@@ -6,6 +6,7 @@ import { StudioFeature } from '../types/context'
 
 export const useStudioState = createSharedComposable(() => {
   const devMode = ref(false)
+  const isPublishing = ref(false)
   const manifestId = ref<string>('')
   const preferences = useStorage<StudioConfig>('studio-preferences', { syncEditorAndRoute: true, followEditorCursor: false, showTechnicalMode: false, editorMode: 'tiptap', debug: false, enableAICompletion: true })
   const location = useStorage<StudioLocation>('studio-active', { active: false, feature: StudioFeature.Content, fsPath: '/' })
@@ -32,6 +33,7 @@ export const useStudioState = createSharedComposable(() => {
 
   return {
     devMode: readonly(devMode),
+    isPublishing,
     manifestId: readonly(manifestId),
     preferences: readonly(preferences),
     location: readonly(location),

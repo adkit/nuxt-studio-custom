@@ -111,7 +111,8 @@ watch(() => document.value?.id + '-' + props.draftItem.version, async () => {
 
 async function setContent(document: DatabasePageItem) {
   const generateContentFromDocument = host.document.generate.contentFromDocument
-  const generatedContent = await generateContentFromDocument(document) || ''
+  const reviewed = props.draftItem.status === DraftStatus.Deleted ? undefined : props.draftItem.reviewMarkdown
+  const generatedContent = reviewed ?? await generateContentFromDocument(document) ?? ''
   content.value = generatedContent
   setEditorContent(generatedContent, true)
   currentDocumentId.value = document.id

@@ -180,6 +180,7 @@ export function useDraftBase<T extends DatabaseItem | MediaItem>(
         // @ts-expect-error upsert type is wrong, second param should be DatabaseItem | MediaItem
         await hostDb.upsert(draftItem.fsPath, existingItem.original)
         existingItem.modified = existingItem.original
+        delete existingItem.reviewMarkdown
         existingItem.formattingApplied = false
         existingItem.status = await getStatus(existingItem.modified as DatabaseItem, existingItem.original as DatabaseItem)
         await storage.setItem(draftItem.fsPath, existingItem)

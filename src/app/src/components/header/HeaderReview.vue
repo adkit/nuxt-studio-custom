@@ -9,7 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { useAI } from '../../composables/useAI'
 
 const router = useRouter()
-const { location } = useStudioState()
+const { location, isPublishing } = useStudioState()
 const { context, host } = useStudio()
 const { t } = useI18n()
 const ai = useAI(host)
@@ -25,7 +25,6 @@ onMounted(() => {
   }
 })
 
-const isPublishing = ref(false)
 const isSuggesting = ref(false)
 const openTooltip = ref(false)
 
