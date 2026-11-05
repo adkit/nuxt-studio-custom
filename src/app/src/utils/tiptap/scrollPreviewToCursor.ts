@@ -50,6 +50,29 @@ export function scrollPreviewToCursor(editor: Editor, documentId: string) {
   }
 
   const rect = target.getBoundingClientRect()
-  if (!rect.height || (rect.top >= window.innerHeight * 0.15 && rect.bottom <= window.innerHeight * 0.9)) return
-  target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
+  if (!rect.height) return
+
+  const sourcePos = 'node' in selection || !$head.depth ? $head.pos : $head.before()
+  const source = editor.view.nodeDOM(sourcePos)
+  const sourceTop = source instanceof Element ? source.getBoundingClientRect().top : editor.view.coordsAtPos($head.pos).top
+
+  // A sticky site header can cover a line that is visible in the editor.
+  const header = document.querySelector('header, [role="banner"]')
+  const headerBottom = header && ['fixed', 'sticky'].includes(getComputedStyle(header).position)
+    ? header.getBoundingClientRect().bottom
+    : 0
+  const scroller = findScrollContainer(target)
+  const viewport = scroller === document.scrollingElement ? null : scroller.getBoundingClientRect()
+  const top = Math.max(headerBottom, viewport?.top ?? 0) + 4
+  const bottom = Math.min(window.innerHeight, viewport?.bottom ?? window.innerHeight)
+  const desiredTop = Math.max(top, Math.min(sourceTop, bottom - Math.min(rect.height, 24)))
+  const delta = rect.top - desiredTop
+  if (Math.abs(delta) > 1) scroller.scrollBy({ top: delta, behavior: 'instant' })
+}
+
+function findScrollContainer(target: Element): Element {
+  for (let el = target.parentElement; el && el !== document.body; el = el.parentElement) {
+    if (el.scrollHeight > el.clientHeight && ['auto', 'scroll', 'overlay'].includes(getComputedStyle(el).overflowY)) return el
+  }
+  return document.scrollingElement ?? document.documentElement
 }
