@@ -61,7 +61,6 @@ watch(validationErrors, (errors) => {
 })
 
 const tooltipText = computed(() => {
-  if (context.hasUnsavedReviewEdits.value) return t('studio.review.saveBeforePublish')
   if (validationErrors.value.length > 0) {
     return validationErrors.value[0].message
   }
@@ -69,7 +68,7 @@ const tooltipText = computed(() => {
 })
 
 async function publishChanges() {
-  if (isPublishing.value || context.hasUnsavedReviewEdits.value) return
+  if (isPublishing.value) return
 
   isPublishing.value = true
   try {
@@ -209,7 +208,7 @@ defineShortcuts({
           color="neutral"
           variant="solid"
           :loading="isPublishing"
-          :disabled="validationErrors.length > 0 || context.hasUnsavedReviewEdits.value"
+          :disabled="validationErrors.length > 0"
           icon="i-lucide-check"
           :label="$t('studio.buttons.publish')"
           :ui="{ leadingIcon: 'size-3.5' }"

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useEventListener } from '@vueuse/core'
+import { onBeforeRouteLeave } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { DraftStatus, type DatabaseItem, type DraftItem } from '../../types'
 import { useMonaco } from '../../composables/useMonaco'
@@ -12,68 +14,95 @@ const props = defineProps<{ draftItem: DraftItem, original: string, modified: st
 const emit = defineEmits<{ saved: [text: string] }>()
 const { host, ui, documentTree } = useStudio()
 const { t } = useI18n()
-const { isPublishing, reviewInputs } = useStudioState()
+const { isPublishing } = useStudioState()
 const extension = getFileExtension(props.draftItem.fsPath)
 const language = ({ md: 'markdown', yml: 'yaml', yaml: 'yaml', json: 'json' })[extension] ?? 'plaintext'
 const canEdit = computed(() => extension === 'md' && !props.draftItem.conflict && props.draftItem.status !== DraftStatus.Deleted)
 const diffTarget = ref<HTMLElement>()
 const singleTarget = ref<HTMLElement>()
+const editTarget = ref<HTMLElement>()
+const editing = ref(false)
+const confirmingDiscard = ref(false)
 const saving = ref(false)
 const error = ref('')
-const current = computed(() => props.draftItem.modified as DatabaseItem | undefined)
-const dirty = computed(() => !!current.value && reviewInputs.has(current.value))
-const initialText = current.value ? reviewInputs.get(current.value) ?? props.modified : props.original
-const { editor: single } = useMonaco(singleTarget, {
+const dirty = ref(false)
+const { editor: single, setContent } = useMonaco(singleTarget, {
   language,
-  initialContent: props.draftItem.status === DraftStatus.Deleted ? props.original : initialText,
-  readOnly: !canEdit.value,
+  initialContent: props.draftItem.status === DraftStatus.Deleted ? props.original : props.modified,
+  readOnly: true,
   colorMode: ui.colorMode,
 })
 
-const { editor: diff } = useMonacoDiff(diffTarget, {
+const options = {
   original: props.original,
-  modified: initialText,
   language,
   colorMode: ui.colorMode,
-  editorOptions: { readOnly: !canEdit.value, originalEditable: false },
+}
+const { editor: diff } = useMonacoDiff(diffTarget, { ...options, modified: props.modified })
+const { editor: editDiff } = useMonacoDiff(editTarget, {
+  ...options,
+  get modified() { return props.modified },
+  editorOptions: { readOnly: false, originalEditable: false },
 })
-const right = computed(() => diff.value?.getModifiedEditor() ?? single.value)
-watch(right, (editor, _, onCleanup) => {
-  if (!editor || !canEdit.value) return
-  const listener = editor.onDidChangeModelContent(() => {
-    const doc = current.value
-    if (!doc) return
-    const text = editor.getValue()
-    if (text === props.modified) reviewInputs.delete(doc)
-    else reviewInputs.set(doc, text)
-    error.value = ''
+
+watch(editDiff, (instance, _, onCleanup) => {
+  if (!instance) return
+  const right = instance.getModifiedEditor()
+  const from = diff.value?.getModifiedEditor() ?? single.value
+  const line = from?.getVisibleRanges()[0]?.startLineNumber ?? 1
+  right.revealLineNearTop(line)
+  const listener = right.onDidChangeModelContent(() => {
+    dirty.value = right.getValue() !== props.modified
   })
   onCleanup(() => listener.dispose())
 })
-watch([right, canEdit, isPublishing, saving], () => {
-  right.value?.updateOptions({ readOnly: !canEdit.value || isPublishing.value || saving.value })
-}, { flush: 'sync' })
 
-function cancel() {
-  right.value?.setValue(props.modified)
+onBeforeRouteLeave(() => !editing.value)
+
+function requestClose() {
+  if (saving.value) return
+  if (dirty.value) confirmingDiscard.value = true
+  else editing.value = false
+}
+
+function discard() {
+  confirmingDiscard.value = false
+  editing.value = false
+}
+
+const editDialog = computed(() => editTarget.value?.closest<HTMLElement>('[role="dialog"]'))
+useEventListener(editDialog, 'keydown', (event) => {
+  if (event.key !== 'Escape' || event.defaultPrevented) return
+  event.stopPropagation()
+  requestClose()
+})
+
+function startEditing() {
   error.value = ''
+  dirty.value = false
+  editing.value = true
 }
 
 async function save() {
-  const doc = current.value
-  if (saving.value || isPublishing.value || !right.value || !doc || !dirty.value) return
+  const current = props.draftItem.modified as DatabaseItem | undefined
+  if (saving.value || !editDiff.value || !current || !canEdit.value) return
   saving.value = true
-  const text = right.value.getValue()
+  const right = editDiff.value.getModifiedEditor()
+  right.updateOptions({ readOnly: true })
+  const text = right.getValue()
   try {
-    const parsed = await host.document.generate.documentFromContent(doc.id, text)
+    const parsed = await host.document.generate.documentFromContent(current.id, text)
     if (!parsed) throw new Error(t('studio.review.invalidMarkdown'))
-    const document = { ...host.document.utils.pickReservedKeys(doc), ...parsed, id: doc.id, fsPath: props.draftItem.fsPath }
+    const document = { ...host.document.utils.pickReservedKeys(current), ...parsed, id: current.id, fsPath: props.draftItem.fsPath }
     await documentTree.draft.update(props.draftItem.fsPath, document, { text, original: props.original })
     emit('saved', text)
-    reviewInputs.delete(doc)
+    diff.value?.getModel()?.modified.setValue(text)
+    if (single.value) setContent(text)
+    editing.value = false
   }
   catch (cause) {
     error.value = String(cause)
+    right.updateOptions({ readOnly: false })
   }
   finally {
     saving.value = false
@@ -83,6 +112,17 @@ async function save() {
 
 <template>
   <div>
+    <UButton
+      v-if="canEdit"
+      :label="t('studio.review.editDraft')"
+      :disabled="isPublishing"
+      icon="i-lucide-pencil"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      class="m-1"
+      @click="startEditing"
+    />
     <ResizableElement
       :min-height="200"
       :max-height="600"
@@ -101,31 +141,65 @@ async function save() {
       />
     </ResizableElement>
 
-    <div
-      v-if="dirty || saving"
-      class="flex items-center justify-end gap-2 border-t border-default p-2"
+    <UModal
+      :open="editing"
+      :title="draftItem.fsPath"
+      :description="t('studio.review.editDescription')"
+      :dismissible="!saving"
+      :close="false"
+      :ui="{ content: 'w-[95vw] max-w-6xl', body: 'p-0 sm:p-0' }"
+      @update:open="!$event && requestClose()"
     >
-      <p
-        v-if="error"
-        role="alert"
-        class="me-auto text-sm text-error"
-      >
-        {{ error }}
-      </p>
-      <UButton
-        :label="t('studio.aria.cancel')"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        :disabled="saving"
-        @click="cancel"
-      />
-      <UButton
-        :label="t('studio.review.saveDraft')"
-        size="xs"
-        :loading="saving"
-        @click="save"
-      />
-    </div>
+      <template #body>
+        <div
+          ref="editTarget"
+          class="h-[60vh]"
+        />
+      </template>
+      <template #footer>
+        <p
+          v-if="error"
+          role="alert"
+          class="text-sm text-error"
+        >
+          {{ error }}
+        </p>
+        <UButton
+          :label="t('studio.aria.cancel')"
+          color="neutral"
+          variant="ghost"
+          :disabled="saving"
+          class="ms-auto"
+          @click="requestClose"
+        />
+        <UButton
+          :label="t('studio.review.saveDraft')"
+          :loading="saving"
+          :disabled="!dirty || saving"
+          @click="save"
+        />
+      </template>
+    </UModal>
+    <UModal
+      v-model:open="confirmingDiscard"
+      :title="t('studio.review.discardTitle')"
+      :description="t('studio.review.discardDescription')"
+      :close="false"
+    >
+      <template #footer>
+        <UButton
+          :label="t('studio.review.keepEditing')"
+          color="neutral"
+          variant="outline"
+          class="ms-auto"
+          @click="confirmingDiscard = false"
+        />
+        <UButton
+          :label="t('studio.review.discardChanges')"
+          color="error"
+          @click="discard"
+        />
+      </template>
+    </UModal>
   </div>
 </template>
