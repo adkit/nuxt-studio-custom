@@ -154,7 +154,7 @@ watch(() => `${document.value?.id}-${props.draftItem.version}-${props.draftItem.
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="h-full flex flex-col" @click.capture="onEditorClick">
     <ContentEditorTipTapDebug
       v-if="preferences.debug"
       :current-tiptap="currentTiptap"
@@ -178,7 +178,6 @@ watch(() => `${document.value?.id}-${props.draftItem.version}-${props.draftItem.
         resolveInitialSlot: tag => pickInitialSlot(host.meta.editor.components.get().find(c => c.name === tag)?.meta.slots),
         additionalExtensions: aiExtensions,
       })"
-      @click="onEditorClick"
     >
       <UEditorToolbar
         :editor="editor"
