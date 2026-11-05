@@ -4,12 +4,13 @@ import type { PropType } from 'vue'
 import type { Editor, EditorEvents, JSONContent } from '@tiptap/core'
 import type { MarkdownDocument } from 'comark'
 import type { DraftItem, DatabasePageItem } from '../../../types'
-import { ref, watch, computed, useTemplateRef } from 'vue'
+import { ref, watch, computed, onBeforeUnmount, useTemplateRef } from 'vue'
+import { useEventListener } from '@vueuse/core'
 import { useStudio } from '../../../composables/useStudio'
 import { useStudioState } from '../../../composables/useStudioState'
 import { comarkToTiptap } from '../../../utils/tiptap/comarkToTiptap'
 import { tiptapToComark } from '../../../utils/tiptap/tiptapToComark'
-import { scrollPreviewToCursor } from '../../../utils/tiptap/scrollPreviewToCursor'
+import { scrollPreviewToCursor, stopFollowingCursor } from '../../../utils/tiptap/scrollPreviewToCursor'
 import { removeLastEmptyParagraph } from '../../../utils/tiptap/editor'
 import { pickInitialSlot } from '../../../utils/tiptap/handlers'
 import { studioStarterKitOptions, createStudioExtensions } from '../../../utils/tiptap/studio-extensions'
@@ -52,7 +53,10 @@ function onEditorClick(event: MouseEvent) {
 
 watch(() => preferences.value.followEditorCursor, (enabled) => {
   if (enabled) followCursor(editorComponent.value?.editor)
+  else stopFollowingCursor()
 })
+useEventListener(window, ['wheel', 'touchstart'], stopFollowingCursor, { passive: true, capture: true })
+onBeforeUnmount(stopFollowingCursor)
 
 const hasNuxtUI = host.meta.editor.components.hasNuxtUI
 
@@ -154,7 +158,10 @@ watch(() => `${document.value?.id}-${props.draftItem.version}-${props.draftItem.
 </script>
 
 <template>
-  <div class="h-full flex flex-col" @click.capture="onEditorClick">
+  <div
+    class="h-full flex flex-col"
+    @click.capture="onEditorClick"
+  >
     <ContentEditorTipTapDebug
       v-if="preferences.debug"
       :current-tiptap="currentTiptap"
