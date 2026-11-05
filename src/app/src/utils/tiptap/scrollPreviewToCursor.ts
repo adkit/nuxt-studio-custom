@@ -67,7 +67,9 @@ export function scrollPreviewToCursor(editor: Editor, documentId: string) {
   const bottom = Math.min(window.innerHeight, viewport?.bottom ?? window.innerHeight)
   const desiredTop = Math.max(top, Math.min(sourceTop, bottom - Math.min(rect.height, 24)))
   const delta = rect.top - desiredTop
-  if (Math.abs(delta) > 1) scroller.scrollBy({ top: delta, behavior: 'instant' })
+  if (Math.abs(delta) <= 1) return
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  scroller.scrollBy({ top: delta, behavior: reduceMotion ? 'instant' : 'smooth' })
 }
 
 function findScrollContainer(target: Element): Element {
