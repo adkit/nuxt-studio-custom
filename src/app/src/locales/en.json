@@ -22,6 +22,7 @@
     "tooltips": {
       "toggleStudio": "Toggle Studio",
       "unlinkEditor": "Unlink editor and preview",
+      "followEditorCursor": "Follow editor cursor in preview",
       "linkEditor": "Link editor and preview",
       "copiedToClipboard": "Copied to clipboard",
       "copyToClipboard": "Copy to clipboard",

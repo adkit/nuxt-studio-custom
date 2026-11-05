@@ -5,7 +5,7 @@ import { useStudio } from '../composables/useStudio'
 import { useStudioState } from '../composables/useStudioState'
 import type { DropdownMenuItem } from '@nuxt/ui/runtime/components/DropdownMenu.vue.d.ts'
 
-const { ui, host, gitProvider } = useStudio()
+const { ui, host, gitProvider, documentTree, context } = useStudio()
 const { devMode, preferences, updatePreference, unsetActiveLocation } = useStudioState()
 const user = host.user.get()
 const { t } = useI18n()
@@ -129,6 +129,20 @@ function closeStudio() {
           :color="preferences.syncEditorAndRoute ? 'info' : 'neutral'"
           :class="!preferences.syncEditorAndRoute && 'opacity-50'"
           @click="updatePreference('syncEditorAndRoute', !preferences.syncEditorAndRoute)"
+        />
+      </UTooltip>
+      <UTooltip
+        v-if="context.currentFeature.value === 'content' && preferences.editorMode === 'tiptap' && documentTree.currentItem.value.fsPath.endsWith('.md')"
+        :text="t('studio.tooltips.followEditorCursor')"
+        :delay-duration="0"
+      >
+        <UButton
+          icon="i-lucide-mouse-pointer-2"
+          variant="ghost"
+          :color="preferences.followEditorCursor ? 'info' : 'neutral'"
+          :aria-label="t('studio.tooltips.followEditorCursor')"
+          :aria-pressed="!!preferences.followEditorCursor"
+          @click="updatePreference('followEditorCursor', !preferences.followEditorCursor)"
         />
       </UTooltip>
       <UTooltip

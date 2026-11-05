@@ -4,6 +4,7 @@ export type EditorMode = 'code' | 'tiptap'
 
 export interface StudioConfig {
   syncEditorAndRoute: boolean
+  followEditorCursor: boolean
   showTechnicalMode: boolean
   editorMode: EditorMode
   debug: boolean

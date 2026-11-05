@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { queueLatestArticleEdit } from '../../../utils/queueLatestArticleEdit'
 import type { PropType } from 'vue'
-import type { JSONContent } from '@tiptap/vue-3'
+import type { Editor, EditorEvents, JSONContent } from '@tiptap/core'
 import type { MarkdownDocument } from 'comark'
 import type { DraftItem, DatabasePageItem } from '../../../types'
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, useTemplateRef } from 'vue'
 import { useStudio } from '../../../composables/useStudio'
 import { useStudioState } from '../../../composables/useStudioState'
 import { comarkToTiptap } from '../../../utils/tiptap/comarkToTiptap'
 import { tiptapToComark } from '../../../utils/tiptap/tiptapToComark'
+import { scrollPreviewToCursor } from '../../../utils/tiptap/scrollPreviewToCursor'
 import { removeLastEmptyParagraph } from '../../../utils/tiptap/editor'
 import { pickInitialSlot } from '../../../utils/tiptap/handlers'
 import { studioStarterKitOptions, createStudioExtensions } from '../../../utils/tiptap/studio-extensions'
@@ -29,6 +30,29 @@ const document = defineModel<DatabasePageItem>()
 
 const { host } = useStudio()
 const { preferences } = useStudioState()
+
+const editorComponent = useTemplateRef('visualEditor')
+
+function followCursor(editor?: Editor) {
+  if (!preferences.value.followEditorCursor || !document.value?.id || !editor) return
+  scrollPreviewToCursor(editor, document.value.id)
+}
+
+function onCursorMove({ editor, transaction }: EditorEvents['selectionUpdate']) {
+  if (!editor.isFocused) return
+  // A keystroke within the same paragraph should leave the preview still.
+  if (!transaction.docChanged) followCursor(editor)
+}
+
+function onEditorClick(event: MouseEvent) {
+  if (event.target instanceof Element && event.target.closest('.tiptap')) {
+    followCursor(editorComponent.value?.editor)
+  }
+}
+
+watch(() => preferences.value.followEditorCursor, (enabled) => {
+  if (enabled) followCursor(editorComponent.value?.editor)
+})
 
 const hasNuxtUI = host.meta.editor.components.hasNuxtUI
 
@@ -108,7 +132,6 @@ watch(tiptapJSON, queueLatestArticleEdit<JSONContent | undefined>(() => document
     currentComark.value = comarkTree
     currentContent.value = await host.document.generate.contentFromDocument(updatedDocument) as string
   }
-
 }))
 
 // Trigger on document changes
@@ -140,12 +163,14 @@ watch(() => `${document.value?.id}-${props.draftItem.version}-${props.draftItem.
     />
 
     <UEditor
+      ref="visualEditor"
       v-slot="{ editor }"
       v-model="tiptapJSON"
       class="mb-4 ml-1"
       content-type="json"
       :handlers="customHandlers"
       :image="false"
+      :on-selection-update="onCursorMove"
       :starter-kit="studioStarterKitOptions"
       :extensions="createStudioExtensions({
         placeholder: $t('studio.tiptap.editor.placeholder'),
@@ -153,6 +178,7 @@ watch(() => `${document.value?.id}-${props.draftItem.version}-${props.draftItem.
         resolveInitialSlot: tag => pickInitialSlot(host.meta.editor.components.get().find(c => c.name === tag)?.meta.slots),
         additionalExtensions: aiExtensions,
       })"
+      @click="onEditorClick"
     >
       <UEditorToolbar
         :editor="editor"
