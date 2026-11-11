@@ -173,6 +173,15 @@ export function createGitHubProvider(options: GitOptions): GitProviderAPI {
     const refData = await $repositoryApi(`/git/refs/heads/${branch}`)
     const latestCommitSha = refData.object.sha
 
+    // Compare against the commit we will write on top of, even if the branch moved after the article was read.
+    for (const file of files) {
+      if (!file.expectedSha) continue
+      const baseFile = await $repositoryApi(`/contents/${file.path}?ref=${latestCommitSha}`, { timeout: 60_000 })
+      if (baseFile.sha !== file.expectedSha) {
+        throw new Error(`${file.path} changed on GitHub. Review the latest article before publishing again.`)
+      }
+    }
+
     // Get base tree SHA
     const commitData = await $repositoryApi(`/git/commits/${latestCommitSha}`)
     const baseTreeSha = commitData.tree.sha

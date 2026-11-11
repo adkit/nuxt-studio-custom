@@ -50,6 +50,12 @@ const statusConfig = {
     </div>
 
     <div class="flex-1 overflow-auto p-4">
+      <p
+        v-if="!context.draftCount.value"
+        class="text-sm text-muted"
+      >
+        {{ $t('studio.review.empty') }}
+      </p>
       <div class="flex flex-col gap-2 mx-auto">
         <template
           v-for="(drafts, status) in groupedDrafts"

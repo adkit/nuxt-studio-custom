@@ -45,6 +45,8 @@ const { editor: editDiff } = useMonacoDiff(editTarget, {
   editorOptions: { readOnly: false, originalEditable: false },
 })
 
+watch(diff, instance => instance?.revealFirstDiff())
+
 watch(editDiff, (instance, _, onCleanup) => {
   if (!instance) return
   const right = instance.getModifiedEditor()
@@ -112,17 +114,21 @@ async function save() {
 
 <template>
   <div>
-    <UButton
-      v-if="canEdit"
-      :label="t('studio.review.editDraft')"
-      :disabled="isPublishing"
-      icon="i-lucide-pencil"
-      size="xs"
-      variant="ghost"
-      color="neutral"
-      class="m-1"
-      @click="startEditing"
-    />
+    <div class="flex flex-wrap gap-1 p-1">
+      <UButton
+        v-if="canEdit"
+        :label="t('studio.review.editDraft')"
+        :disabled="isPublishing"
+        icon="i-lucide-pencil"
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        @click="startEditing"
+      />
+      <div class="ms-auto">
+        <ReviewDiscardButton :draft-item="draftItem" />
+      </div>
+    </div>
     <ResizableElement
       :min-height="200"
       :max-height="600"

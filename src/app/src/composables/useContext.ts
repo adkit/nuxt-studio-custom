@@ -15,6 +15,8 @@ import type {
   StudioActionInProgress,
   CreateFolderParams,
   DatabaseItem,
+  DraftItem,
+  MediaItem,
 } from '../types'
 import { oneStepActions, STUDIO_ITEM_ACTION_DEFINITIONS, twoStepActions, STUDIO_BRANCH_ACTION_DEFINITIONS } from '../utils/context'
 import type { useTree } from './useTree'
@@ -25,6 +27,7 @@ import { findDescendantsFileItemsFromFsPath } from '../utils/tree'
 import { joinURL } from 'ufo'
 import { upperFirst } from 'scule'
 import { consola } from 'consola'
+import { useStudioState } from './useStudioState'
 
 const logger = consola.withTag('useContext')
 
@@ -37,6 +40,10 @@ export const useContext = createSharedComposable((
 ) => {
   const route = useRoute()
   const router = useRouter()
+  const mediaDraft = mediaTree.draft as ReturnType<typeof useDraftMedias>
+  const { isSavingArticleImage } = mediaDraft
+  const { isPublishing } = useStudioState()
+  const isDiscardingDraft = ref(false)
 
   /**
    * Current feature
@@ -60,6 +67,22 @@ export const useContext = createSharedComposable((
   const allDrafts = computed(() => [...documentTree.draft.list.value, ...mediaTree.draft.list.value].filter(draft => draft.status !== DraftStatus.Pristine))
   const isDraftInProgress = computed(() => allDrafts.value.some(draft => draft.status !== DraftStatus.Pristine))
   const draftCount = computed(() => allDrafts.value.length)
+
+  async function discardReviewDraft(draft: DraftItem) {
+    if (isPublishing.value || isSavingArticleImage.value || isDiscardingDraft.value) {
+      throw new Error('Wait for the current change to finish.')
+    }
+    const drafts = mediaDraft.list.value.includes(draft) ? mediaDraft : documentTree.draft
+    if (!drafts.list.value.includes(draft)) return
+
+    isDiscardingDraft.value = true
+    try {
+      await drafts.revert(draft.fsPath)
+    }
+    finally {
+      isDiscardingDraft.value = false
+    }
+  }
 
   /**
    * Actions
@@ -231,12 +254,26 @@ export const useContext = createSharedComposable((
 
   const branchActionHandler: { [K in StudioBranchActionId]: (args: ActionHandlerParams[K]) => Promise<void> } = {
     [StudioBranchActionId.PublishBranch]: async (params: PublishBranchParams) => {
+      if (isDiscardingDraft.value) {
+        throw new Error('Wait for the draft to finish discarding, then publish again.')
+      }
+      if (isSavingArticleImage.value) {
+        throw new Error('Wait for the image to finish uploading, then publish again.')
+      }
+
       const { commitMessage } = params
       const prefix = host.meta.git?.commit?.messagePrefix
       const finalMessage = prefix ? `${prefix} ${commitMessage.trim()}`.trim() : commitMessage.trim()
-      const documentFiles = await documentTree.draft.listAsRawFiles()
-      const mediaFiles = await mediaTree.draft.listAsRawFiles()
-      await gitProvider.api.commitFiles([...documentFiles, ...mediaFiles], finalMessage)
+      const articleImages = mediaDraft.list.value.flatMap((draft) => {
+        const image = (draft.modified as MediaItem | undefined)?.articleImage
+        return image && draft.status !== DraftStatus.Pristine ? [image] : []
+      })
+      const documentFiles = await documentTree.draft.listAsRawFiles(articleImages)
+      const mediaFiles = await mediaDraft.listAsRawFiles()
+      const result = await gitProvider.api.commitFiles([...documentFiles, ...mediaFiles], finalMessage)
+      if (!result?.success) {
+        throw new Error('Could not publish the drafts. Try again.')
+      }
 
       // @ts-expect-error params is null
       await itemActionHandler[StudioItemActionId.RevertAllItems]()
@@ -262,6 +299,9 @@ export const useContext = createSharedComposable((
     branchActionHandler,
     actionInProgress,
     allDrafts,
+    discardReviewDraft,
+    isDiscardingDraft,
+    isSavingArticleImage,
     draftCount,
     isDraftInProgress,
     unsetActionInProgress,

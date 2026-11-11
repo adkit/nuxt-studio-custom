@@ -87,24 +87,22 @@ function fetchFromIndexedDB(event, url) {
 
     const dbItem = JSON.parse(data)
 
-    console.log('Data found in IndexedDB:', dbItem);
-
     // Deleted file
     if (dbItem.status === DraftStatus.Deleted) {
       return fetch('https://placehold.co/1200x800?text=Deleted');
     }
 
-    // Renamed file
-    if (dbItem.original?.path) {
-      return fetch(dbItem.original.path);
+    // Renamed files can point to the old URL when their bytes are absent.
+    const raw = dbItem.modified?.raw;
+    if (!raw) {
+      return fetch(dbItem.original?.path || event.request);
     }
 
-    // Created file
-    const parsed = parseDataUrl(dbItem.modified.raw);
+    const parsed = parseDataUrl(raw);
     const bytes = base64ToUint8Array(parsed.base64);
 
     return new Response(bytes, {
-      headers: { 'Content-Type': parsed.mime }
+      headers: { 'Content-Type': parsed.mime, 'Cache-Control': 'no-store' }
     });
   }).catch(() => fetch(event.request))
 }

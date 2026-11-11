@@ -68,7 +68,7 @@ const tooltipText = computed(() => {
 })
 
 async function publishChanges() {
-  if (isPublishing.value) return
+  if (isPublishing.value || context.isSavingArticleImage.value || context.isDiscardingDraft.value || !context.draftCount.value) return
 
   isPublishing.value = true
   try {
@@ -208,7 +208,7 @@ defineShortcuts({
           color="neutral"
           variant="solid"
           :loading="isPublishing"
-          :disabled="validationErrors.length > 0"
+          :disabled="validationErrors.length > 0 || context.isSavingArticleImage.value || context.isDiscardingDraft.value || !context.draftCount.value"
           icon="i-lucide-check"
           :label="$t('studio.buttons.publish')"
           :ui="{ leadingIcon: 'size-3.5' }"

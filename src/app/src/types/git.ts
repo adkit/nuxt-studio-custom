@@ -41,6 +41,7 @@ export interface RawFile {
   content: string | null
   status: DraftStatus
   encoding?: 'utf-8' | 'base64'
+  expectedSha?: string
 }
 
 export interface GitProviderAPI {

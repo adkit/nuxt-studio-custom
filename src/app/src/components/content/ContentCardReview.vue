@@ -37,6 +37,12 @@ watch(isOpen, async (open, _, onCleanup) => {
     :draft-item="draftItem"
   >
     <template #open>
+      <div
+        v-if="!comparison"
+        class="flex justify-end p-1"
+      >
+        <ReviewDiscardButton :draft-item="draftItem" />
+      </div>
       <p
         v-if="error"
         role="alert"

@@ -8,6 +8,8 @@ import * as locales from '@nuxt/ui/locale'
 const { host, ui, isReady, context, documentTree } = useStudio()
 const { location, preferences } = useStudioState()
 const router = useRouter()
+const { owner, repo, branch } = host.repository
+const isAdKitCms = owner === 'adkit' && repo === 'adkit-monorepo' && branch === 'cms'
 
 const uiLocale = computed(() => {
   if (host.meta.defaultLocale in locales) {
@@ -170,6 +172,7 @@ router.beforeEach((to, from) => {
       </div>
 
       <div ref="appPortal" />
+      <ArticleCoverPreview v-if="isAdKitCms" />
     </UApp>
   </div>
 </template>

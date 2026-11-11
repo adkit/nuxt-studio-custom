@@ -6,5 +6,6 @@ export interface MediaConfig {
 }
 
 export interface MediaItem extends BaseItem {
+  articleImage?: { articleFsPath: string, field: 'cover' | 'og' }
   [key: string]: unknown
 }
