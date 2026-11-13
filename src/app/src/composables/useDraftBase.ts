@@ -177,13 +177,14 @@ export function useDraftBase<T extends DatabaseItem | MediaItem>(
         }
       }
       else {
+        const { original } = existingItem
         // @ts-expect-error upsert type is wrong, second param should be DatabaseItem | MediaItem
-        await hostDb.upsert(draftItem.fsPath, existingItem.original)
-        existingItem.modified = existingItem.original
-        delete existingItem.reviewMarkdown
-        existingItem.formattingApplied = false
-        existingItem.status = await getStatus(existingItem.modified as DatabaseItem, existingItem.original as DatabaseItem)
-        await storage.setItem(draftItem.fsPath, existingItem)
+        await hostDb.upsert(draftItem.fsPath, original)
+        const status = await getStatus(original!, original!)
+        const reverted = { modified: original, reviewMarkdown: undefined, formattingApplied: false, status }
+        // A refresh after the preview updates must see the completed discard.
+        await storage.setItem(draftItem.fsPath, { ...existingItem, ...reverted })
+        Object.assign(existingItem, reverted)
       }
     }
 

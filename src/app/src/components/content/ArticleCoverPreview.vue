@@ -3,9 +3,10 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useMutationObserver, useStyleTag } from '@vueuse/core'
 import { useStudio } from '../../composables/useStudio'
+import { DraftStatus } from '../../types/draft'
 import type { MediaItem } from '../../types/media'
 
-const { host, mediaTree, ui } = useStudio()
+const { host, mediaTree } = useStudio()
 const routePath = ref(host.app.getCurrentRoute().path)
 const header = shallowRef<HTMLElement | null>(null)
 
@@ -14,11 +15,12 @@ host.on.routeChange((route) => {
 })
 
 const cover = computed(() => {
-  if (!ui.isOpen.value || !routePath.value.startsWith('/resources/')) return null
+  if (!routePath.value.startsWith('/resources/')) return null
 
   const slug = routePath.value.slice('/resources/'.length)
   const coverPath = `/images/blog/${slug}/cover.png`
   for (const draft of mediaTree.draft.list.value) {
+    if (draft.status === DraftStatus.Pristine) continue
     const media = draft.modified as MediaItem | undefined
     if (media?.path === coverPath && media.articleImage?.field === 'cover' && typeof media.raw === 'string') {
       return media.raw
@@ -48,13 +50,12 @@ useStyleTag(`
   <Teleport
     v-if="cover && header"
     :to="header"
-    prepend
   >
     <img
       :src="cover"
       alt="Draft article cover"
       width="400"
-      style="max-width: 100%; height: auto; margin-bottom: 1.25rem;"
+      style="order: -1; max-width: 100%; height: auto; margin-bottom: 1.25rem;"
       data-studio-cover-preview
     >
   </Teleport>

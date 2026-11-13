@@ -39,6 +39,11 @@ const fileExtension = computed(() => {
   return getFileExtension(props.mediaItem.path || '').toUpperCase()
 })
 
+const previewSource = computed(() => {
+  const { articleImage, raw, path } = props.mediaItem
+  return articleImage?.field === 'cover' && typeof raw === 'string' ? raw : path
+})
+
 const imageInfo = computed(() => {
   const info = [
     { label: t('studio.media.metaWidth'), value: `${imageDimensions.value.width}px` },
@@ -80,7 +85,7 @@ const remotePath = computed(() => {
     >
       <img
         ref="imageRef"
-        :src="mediaItem.path"
+        :src="previewSource"
         :alt="$t('studio.media.altImagePreview')"
         class="max-w-full max-h-full object-contain"
       >

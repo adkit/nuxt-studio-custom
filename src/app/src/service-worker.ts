@@ -98,6 +98,11 @@ function fetchFromIndexedDB(event, url) {
       return fetch(dbItem.original?.path || event.request);
     }
 
+    // The article has its own draft preview. Keep the saved cover loaded for discard.
+    if (dbItem.modified?.articleImage?.field === 'cover' && new URL(event.request.url).pathname === url) {
+      return fetch(event.request);
+    }
+
     const parsed = parseDataUrl(raw);
     const bytes = base64ToUint8Array(parsed.base64);
 
